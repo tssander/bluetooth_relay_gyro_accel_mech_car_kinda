@@ -1,0 +1,122 @@
+#include <SoftwareSerial.h>
+
+// Bluetooth
+SoftwareSerial BT(9, 10); // assigned bluetooth pins
+
+// motor PWM pins
+const int PWM2A = 11;
+const int PWM2B = 3;
+const int PWM0A = 6;
+const int PWM0B = 5;
+
+// shift register pins
+const int DIR_CLK   = 4;
+const int DIR_EN    = 7;
+const int DATA      = 8;
+const int DIR_LATCH = 12;
+
+// direction values 
+const int Move_Forward  = 39;
+const int Move_Backward = 216;
+const int Left_Rotate   = 106;
+const int Right_Rotate  = 149;
+const int Stop          = 0;
+
+// speed values
+const int DRIVE_SPEED = 150;
+const int TURN_SPEED  = 120;
+
+// thresholds for angles and gyro values
+const float ANGLE_THRESHOLD = 5.0;
+const float GZ_THRESHOLD = 5.0;
+
+void Motor(int Dir, int s1, int s2, int s3, int s4) { //Core motor output function
+  analogWrite(PWM2A, s1);//sets speeds for assigned values
+  analogWrite(PWM2B, s2);
+  analogWrite(PWM0A, s3);
+  analogWrite(PWM0B, s4);
+
+  digitalWrite(DIR_LATCH, LOW);//sends bits to motors
+  shiftOut(DATA, DIR_CLK, MSBFIRST, Dir); //locks pins with the given data
+  digitalWrite(DIR_LATCH, HIGH);
+}
+
+void stopMotors() { //sets direction
+  Motor(Stop, 0, 0, 0, 0); //stops motors
+}
+
+void setup() { //runs loop
+  pinMode(DIR_CLK, OUTPUT); //tells arduino to set all following pins to output
+  pinMode(DATA, OUTPUT);
+  pinMode(DIR_EN, OUTPUT);
+  pinMode(DIR_LATCH, OUTPUT);
+
+  pinMode(PWM0B, OUTPUT);
+  pinMode(PWM0A, OUTPUT);
+  pinMode(PWM2A, OUTPUT);
+  pinMode(PWM2B, OUTPUT);
+
+  digitalWrite(DIR_EN, LOW); //shifts the output
+
+  Serial.begin(9600); //starts serial monitor
+  BT.begin(9600);//starts bluetooth
+
+  stopMotors();//prevents movement at the start
+
+  Serial.println("car ready"); //tells serial monitor that setup is done
+}
+
+void loop() {//starts loop
+  if (Serial.available()) { //set to this when not using BT
+  //if (BT.available()) {//runs if bt available
+  String data = Serial.readStringUntil('\n');//reads the data coming from computer
+  //String data = BT.readStringUntil('\n');//reads until newline
+    data.trim();// removes spaces and newline bytes
+
+    Serial.println(data); // prints to serial monitor what arduino is recieving
+
+    int c1 = data.indexOf(','); //data is seperated
+    int c2 = data.indexOf(',', c1 + 1);
+
+    if (c1 != -1 && c2 != -1) {  //turns string into 3 individuel floats
+
+      float adjAngleY = data.substring(0, c1).toFloat();
+      float adjAngleX = data.substring(c1 + 1, c2).toFloat();
+      float gz        = data.substring(c2 + 1).toFloat();
+
+      Serial.print("Y: "); Serial.print(adjAngleY);//prints the floats
+      Serial.print(" | X: "); Serial.print(adjAngleX);
+      Serial.print(" | GZ: "); Serial.println(gz);
+
+      // sees angles and sets movement based off angle if over threshold
+      if (adjAngleY > ANGLE_THRESHOLD) {
+        Serial.println("Moving forward");
+        Motor(Move_Forward, DRIVE_SPEED, DRIVE_SPEED, DRIVE_SPEED, DRIVE_SPEED);
+      }
+      else if (adjAngleY < -ANGLE_THRESHOLD) {
+        Serial.println("Moving backward");
+        Motor(Move_Backward, DRIVE_SPEED, DRIVE_SPEED, DRIVE_SPEED, DRIVE_SPEED);
+      }
+      else if (adjAngleX > ANGLE_THRESHOLD) {
+        Serial.println("Turning left");
+        Motor(Left_Rotate, TURN_SPEED, TURN_SPEED, TURN_SPEED, TURN_SPEED);
+      }
+      else if (adjAngleX < -ANGLE_THRESHOLD) {
+        Serial.println("Turning right");
+        Motor(Right_Rotate, TURN_SPEED, TURN_SPEED, TURN_SPEED, TURN_SPEED);
+      }
+      else if (gz > GZ_THRESHOLD) {
+        Serial.println("Rotating left");
+        Motor(Left_Rotate, TURN_SPEED, TURN_SPEED, TURN_SPEED, TURN_SPEED);
+      }
+      else if (gz < -GZ_THRESHOLD) {
+        Serial.println("Rotating right");
+        Motor(Right_Rotate, TURN_SPEED, TURN_SPEED, TURN_SPEED, TURN_SPEED);
+      }
+      else {
+        Serial.println("Stopped");
+        stopMotors();
+      }
+    }
+  }
+}
