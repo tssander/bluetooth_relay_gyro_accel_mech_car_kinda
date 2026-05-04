@@ -1,0 +1,39 @@
+
+import serial 
+import time
+
+controller = serial.Serial('/dev/tty.usbmodem14201', 9600, timeout=1)
+car = serial.Serial('/dev/cu.usbserial-14420', 9600, timeout=1)
+try:
+    while True:
+        data = controller.readline()
+
+        if not data:
+            continue
+
+        try:
+            decoded = data.decode(errors='ignore').strip()
+            
+            # Expect: angleY,angleX,gz
+            parts = decoded.split(',')
+
+            if len(parts) != 3:
+                print("Bad packet:", decoded)
+                continue
+
+            angleY = float(parts[0])
+            angleX = float(parts[1])
+            gz     = float(parts[2])
+
+            print(f"Y:{angleY:.2f} X:{angleX:.2f} Z:{gz:.2f}")
+
+            # send clean packet to car
+            out = f"{angleY},{angleX},{gz}\n"
+            car.write(out.encode())
+        except Exception as e:
+            print("Parse error:", decoded, "->", e)
+
+        time.sleep(0.01)
+
+except KeyboardInterrupt:
+    print("Stopped")
