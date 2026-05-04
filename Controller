@@ -1,0 +1,59 @@
+#include <Wire.h>
+#include <MPU9255.h> //Imports Gyro/Accelerometer setup
+#include <SoftwareSerial.h>//imports code for bluetooth
+MPU9255 myMPU;
+SoftwareSerial BT(10, 11);//Sets pins for bluetooth module
+float ax, ay, az; //starts the floats for the accelermeter 
+float gx, gy, gz, gz1;// starts the floats for the gyro
+float angle_ax; //starts the floats for the calculated x angle
+float angle_ay;//starts the floats for the calculated y angle
+
+void setup() { //starts the setup
+ Serial.begin(9600); //starts the serial monitor
+ Wire.begin();
+ BT.begin(9600); //starts bluetooth monitor
+ myMPU.init();
+ myMPU.set_acc_scale(scale_2g);
+
+}
+ 
+void loop() {
+
+myMPU.read_acc(); //reads mpu accelerometer data
+
+ ax = myMPU.ax / 16384.0; //finds acceleration in all 3 directions
+ ay = myMPU.ay / 16384.0;
+ az = myMPU.az / 16384.0;
+ 
+ angle_ay = atan2(ax, az) * 180 / PI; //finds angle in both x and y 
+ angle_ax = atan2(ay, az) * 180 / PI;
+//Gyro reading 
+myMPU.read_gyro(); //reads gyro data 
+gz=myMPU.gz/131; // gets gz value
+
+ // Print to Serial Monitor
+//Serial.print("Angle Y: "); Serial.println(angle_ay);  //code used to check if everything is working
+//Serial.print("Angle X: "); Serial.println(angle_ax);
+//Serial.print("GZ: "); Serial.println(gz);
+
+  // sends output to serial monitor 
+  Serial.print(angle_ay);
+  Serial.print(",");
+  Serial.print(angle_ax);
+  Serial.print(",");
+  Serial.println(gz);
+//sends ourput via bluetooth 
+  BT.print(angle_ay);
+  BT.print(",");
+  BT.print(angle_ax);
+  BT.print(",");
+  BT.println(gz);
+
+  // reads incomming bluetooth if available
+  if (BT.available()) {
+    char c = BT.read();
+    Serial.write(c);
+  }
+
+  delay(50); //delays code for .05 seconds
+}
